@@ -9,7 +9,7 @@ on:
     # descarta muchas ejecuciones en el minuto :00 (hora punta de su cron);
     # evitarlo mejora la fiabilidad. Aun así, GitHub no garantiza el minuto
     # exacto. Coincide con el ritmo de RainViewer (~10 min).
-    - cron: "3,13,23,33,43,53 * * * *"
+    - cron: "7,17,27,37,47,57 * * * *"
   workflow_dispatch: {} # permite lanzarlo a mano desde la pestaña Actions
 
 # Evita que dos ejecuciones se solapen.
