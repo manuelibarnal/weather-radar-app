@@ -28,6 +28,8 @@ const DRY = process.argv.includes("--dry");
 const CELL_DECIMALS = Number(process.env.CELL_DECIMALS ?? 1);
 const MAX_CELLS = Number(process.env.MAX_CELLS ?? 40);
 const CELL_DELAY_MS = 800;
+// URL de la app, para abrirla (al tocar el push) centrada en la zona del aviso.
+const APP_URL = process.env.APP_URL || "https://rainning1.netlify.app";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const STATE_PATH = join(__dirname, "state.json");
@@ -103,10 +105,14 @@ async function main() {
 
     const title = buildAlertTitle(verdict);
     const body = buildAlertBody(verdict) ?? "";
+    // Coords redondeadas (~100 m) para abrir la app en la zona del aviso.
+    const lat3 = Math.round(cell.lat * 1000) / 1000;
+    const lon3 = Math.round(cell.lon * 1000) / 1000;
+    const url = `${APP_URL}/?lat=${lat3}&lon=${lon3}`;
     if (DRY) {
-      console.log(`    [DRY] enviaría a ${cell.ids.length} disp.: "${title}" — ${body}`);
+      console.log(`    [DRY] enviaría a ${cell.ids.length} disp.: "${title}" — ${body}  (${url})`);
     } else {
-      await sendToPlayers(APP_ID, API_KEY, cell.ids, title, body);
+      await sendToPlayers(APP_ID, API_KEY, cell.ids, title, body, url);
       console.log(`    ✓ enviado a ${cell.ids.length} disp.`);
     }
     state[key] = vkey;

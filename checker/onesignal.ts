@@ -45,7 +45,10 @@ export async function sendToPlayers(
   apiKey: string,
   playerIds: string[],
   title: string,
-  body: string
+  body: string,
+  // URL que abre la app al tocar la notificación. Lleva ?lat=&lon= de la zona
+  // del aviso, para que la app abra centrada y analizando esa ubicación.
+  url?: string
 ): Promise<void> {
   if (playerIds.length === 0) return;
   const res = await fetch(`${API_BASE}/notifications`, {
@@ -59,6 +62,7 @@ export async function sendToPlayers(
       include_player_ids: playerIds,
       headings: { en: title, es: title },
       contents: { en: body, es: body },
+      ...(url ? { url } : {}),
     }),
   });
   if (!res.ok) {

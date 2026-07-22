@@ -272,6 +272,23 @@ export default function WeatherMap() {
     };
   }, [map]);
 
+  // Al abrir la app desde una notificación push, la URL trae ?lat=&lon= de la
+  // zona del aviso: se centra el mapa ahí y se analiza esa ubicación, para que
+  // el usuario vea directamente de qué le estamos avisando. Se hace una sola vez
+  // y se limpia la URL para que un refresco manual no lo repita.
+  const appliedUrlLocationRef = useRef(false);
+  useEffect(() => {
+    if (!map || appliedUrlLocationRef.current) return;
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has("lat") || !params.has("lon")) return;
+    const lat = Number(params.get("lat"));
+    const lon = Number(params.get("lon"));
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+    appliedUrlLocationRef.current = true;
+    selectLocationRef.current({ lat, lon }, { recenter: true, popupText: "Zona del aviso" });
+    window.history.replaceState(null, "", window.location.pathname);
+  }, [map]);
+
   // Al CAMBIAR de ubicación, se muestra "Analizando…" en vez de mantener el
   // mensaje de la ubicación anterior mientras se procesan los frames. No se
   // hace en el refresco periódico del radar (misma ubicación): ahí se conserva
