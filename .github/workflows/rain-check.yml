@@ -1,0 +1,49 @@
+name: Comprobador de lluvia (push)
+
+# Revisa el radar por la zona de cada suscriptor y envía avisos push por
+# OneSignal cuando llueve o se acerca lluvia. Se ejecuta en segundo plano; los
+# usuarios reciben el aviso aunque tengan la app cerrada.
+on:
+  schedule:
+    # Cada 15 min. (GitHub no garantiza el minuto exacto y el mínimo real es
+    # ~5 min; 15 es un equilibrio razonable con el límite de RainViewer.)
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {} # permite lanzarlo a mano desde la pestaña Actions
+
+# Necesario para que el paso final pueda commitear checker/state.json.
+permissions:
+  contents: write
+
+# Evita que dos ejecuciones se solapen (una tarda y otra podría empezar).
+concurrency:
+  group: rain-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Comprobar y enviar avisos
+        run: npx tsx checker/index.ts
+        env:
+          ONESIGNAL_APP_ID: ${{ secrets.ONESIGNAL_APP_ID }}
+          ONESIGNAL_REST_API_KEY: ${{ secrets.ONESIGNAL_REST_API_KEY }}
+
+      - name: Guardar estado de avisos
+        run: |
+          if [ -n "$(git status --porcelain checker/state.json)" ]; then
+            git config user.name "rain-check-bot"
+            git config user.email "actions@users.noreply.github.com"
+            git add checker/state.json
+            git commit -m "chore: actualiza estado de avisos [skip ci]"
+            git push
+          fi
