@@ -1,23 +1,18 @@
 name: Comprobador de lluvia (push)
 
 # Revisa el radar por la zona de cada suscriptor y envía avisos push por
-# OneSignal cuando llueve o se acerca lluvia. Se ejecuta en segundo plano; los
+# OneSignal cuando llueve o se acerca lluvia. Corre en segundo plano; los
 # usuarios reciben el aviso aunque tengan la app cerrada.
 on:
   schedule:
-    # Cada 10 min, pero DESPLAZADO de la hora en punto (:03, :13, :23...). GitHub
-    # descarta muchas ejecuciones programadas en el minuto :00 (hora punta de su
-    # cron); evitarlo mejora bastante la fiabilidad. Aun así, GitHub no garantiza
-    # el minuto exacto y a veces se retrasa unos minutos. Coincide con el ritmo
-    # al que RainViewer publica frames nuevos de radar (~10 min).
+    # Cada 10 min, desplazado de la hora en punto (:03, :13, :23...). GitHub
+    # descarta muchas ejecuciones en el minuto :00 (hora punta de su cron);
+    # evitarlo mejora la fiabilidad. Aun así, GitHub no garantiza el minuto
+    # exacto. Coincide con el ritmo de RainViewer (~10 min).
     - cron: "3,13,23,33,43,53 * * * *"
   workflow_dispatch: {} # permite lanzarlo a mano desde la pestaña Actions
 
-# Necesario para que el paso final pueda commitear checker/state.json.
-permissions:
-  contents: write
-
-# Evita que dos ejecuciones se solapen (una tarda y otra podría empezar).
+# Evita que dos ejecuciones se solapen.
 concurrency:
   group: rain-check
   cancel-in-progress: false
@@ -27,10 +22,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          # Historia completa: necesaria para poder hacer rebase antes del push
-          # del estado (si no, en un clon superficial el rebase falla).
-          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -39,6 +30,18 @@ jobs:
 
       - run: npm ci
 
+      # El estado anti-repetición (checker/state.json) se guarda entre
+      # ejecuciones en la CACHÉ de Actions, no commiteando al repo: así se evitan
+      # por completo las carreras de git push. restore-keys "rain-state-" trae la
+      # caché más reciente; luego se guarda una nueva con clave única por run.
+      - name: Restaurar estado de avisos
+        uses: actions/cache/restore@v4
+        with:
+          path: checker/state.json
+          key: rain-state-${{ github.run_id }}
+          restore-keys: |
+            rain-state-
+
       - name: Comprobar y enviar avisos
         run: npx tsx checker/index.ts
         env:
@@ -46,23 +49,8 @@ jobs:
           ONESIGNAL_REST_API_KEY: ${{ secrets.ONESIGNAL_REST_API_KEY }}
 
       - name: Guardar estado de avisos
-        run: |
-          if [ -n "$(git status --porcelain checker/state.json)" ]; then
-            git config user.name "rain-check-bot"
-            git config user.email "actions@users.noreply.github.com"
-            git add checker/state.json
-            git commit -m "chore: actualiza estado de avisos [skip ci]"
-            # El remoto puede haber avanzado desde el checkout (mi push u otra
-            # pasada). Se reintenta reintegrando (rebase) antes de reenviar.
-            for i in 1 2 3 4 5; do
-              if git push; then
-                echo "Estado guardado."
-                exit 0
-              fi
-              echo "Push rechazado; reintegrando cambios remotos (intento $i)…"
-              git pull --rebase || true
-            done
-            # No es crítico: fallar al guardar el estado solo puede provocar un
-            # aviso duplicado en la siguiente pasada, no un fallo del sistema.
-            echo "AVISO: no se pudo guardar checker/state.json tras 5 intentos."
-          fi
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: checker/state.json
+          key: rain-state-${{ github.run_id }}
