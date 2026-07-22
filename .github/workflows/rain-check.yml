@@ -27,6 +27,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Historia completa: necesaria para poder hacer rebase antes del push
+          # del estado (si no, en un clon superficial el rebase falla).
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -48,5 +52,17 @@ jobs:
             git config user.email "actions@users.noreply.github.com"
             git add checker/state.json
             git commit -m "chore: actualiza estado de avisos [skip ci]"
-            git push
+            # El remoto puede haber avanzado desde el checkout (mi push u otra
+            # pasada). Se reintenta reintegrando (rebase) antes de reenviar.
+            for i in 1 2 3 4 5; do
+              if git push; then
+                echo "Estado guardado."
+                exit 0
+              fi
+              echo "Push rechazado; reintegrando cambios remotos (intento $i)…"
+              git pull --rebase || true
+            done
+            # No es crítico: fallar al guardar el estado solo puede provocar un
+            # aviso duplicado en la siguiente pasada, no un fallo del sistema.
+            echo "AVISO: no se pudo guardar checker/state.json tras 5 intentos."
           fi
