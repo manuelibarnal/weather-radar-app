@@ -5,10 +5,12 @@ name: Comprobador de lluvia (push)
 # usuarios reciben el aviso aunque tengan la app cerrada.
 on:
   schedule:
-    # Cada 10 min: coincide con el ritmo al que RainViewer publica frames nuevos
-    # de radar, así que se comprueba justo cuando hay datos nuevos. (GitHub no
-    # garantiza el minuto exacto y su mínimo real es ~5 min.)
-    - cron: "*/10 * * * *"
+    # Cada 10 min, pero DESPLAZADO de la hora en punto (:03, :13, :23...). GitHub
+    # descarta muchas ejecuciones programadas en el minuto :00 (hora punta de su
+    # cron); evitarlo mejora bastante la fiabilidad. Aun así, GitHub no garantiza
+    # el minuto exacto y a veces se retrasa unos minutos. Coincide con el ritmo
+    # al que RainViewer publica frames nuevos de radar (~10 min).
+    - cron: "3,13,23,33,43,53 * * * *"
   workflow_dispatch: {} # permite lanzarlo a mano desde la pestaña Actions
 
 # Necesario para que el paso final pueda commitear checker/state.json.
