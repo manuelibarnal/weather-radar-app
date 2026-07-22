@@ -20,7 +20,9 @@ import type { RainApproachResult } from "../lib/rainDetection";
 import { detectRainApproachNode } from "./detect";
 import { listSubscribers, sendToPlayers, type Subscriber } from "./onesignal";
 
-const APP_ID = process.env.ONESIGNAL_APP_ID ?? "c795e54f-1c18-4eaf-aa8f-a3e5608c3f52";
+// `||` (no `??`): en GitHub Actions un secret no definido llega como cadena
+// vacía, y queremos caer al App ID por defecto también en ese caso.
+const APP_ID = process.env.ONESIGNAL_APP_ID || "c795e54f-1c18-4eaf-aa8f-a3e5608c3f52";
 const API_KEY = process.env.ONESIGNAL_REST_API_KEY ?? "";
 const DRY = process.argv.includes("--dry");
 const CELL_DECIMALS = Number(process.env.CELL_DECIMALS ?? 1);
